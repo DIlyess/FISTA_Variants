@@ -6,16 +6,16 @@ from scipy import linalg
 
 
 def lasso_problem(
-    n: int = 200, sparsity: float = 0.1
+    dim: int, n: int = 200, sparsity: float = 0.1
 ) -> Tuple[Callable, Callable, Callable]:
     """
     Create LASSO problem instance
     """
     # Generate synthetic data
-    A = np.random.randn(n, n)
-    x_true = np.zeros(n)
-    k = int(sparsity * n)
-    idx = np.random.choice(n, k, replace=False)
+    A = np.random.randn(n, dim)
+    x_true = np.zeros(dim)
+    k = int(sparsity * dim)
+    idx = np.random.choice(dim, k, replace=False)
     x_true[idx] = np.random.randn(k)
     b = A @ x_true + 0.01 * np.random.randn(n)
 
@@ -78,7 +78,7 @@ def tv_problem(n: int = 100) -> Tuple[Callable, Callable, Callable]:
 
 
 def logistic_regression_problem(
-    n_samples: int = 1000, n_features: int = 100
+    dim: int, n_samples: int = 1000, n_features: int = 100
 ) -> Tuple[Callable, Callable, Callable]:
     """
     Create sparse logistic regression problem instance

@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 class OptimizationParams:
     """Parameters for optimization algorithms"""
 
-    n: int  # dimension of the problem
+    dim: int  # dimension of the problem
     mu: float  # regularization parameter
     gamma: float  # step size
     tol: float = 1e-15  # tolerance for stopping criterion
@@ -38,12 +38,12 @@ class BaseFISTA(ABC):
     def _initialize(self) -> np.ndarray:
         """Initialize starting point"""
         if self.params.x0 is None:
-            return np.zeros(self.params.n)
+            return np.zeros(self.params.dim)
         return self.params.x0.copy()
 
     @abstractmethod
     def optimize(
-        self, prox_J: Callable, grad_F: Callable, obj_phi: Callable
+        self, grad_F: Callable, prox_J: Callable, obj_phi: Callable
     ) -> Tuple[np.ndarray, dict]:
         """Main optimization method to be implemented by subclasses"""
         pass
@@ -53,7 +53,7 @@ class FistaBT(BaseFISTA):
     """Original FISTA with backtracking"""
 
     def optimize(
-        self, prox_J: Callable, grad_F: Callable, obj_phi: Callable
+        self, grad_F: Callable, prox_J: Callable, obj_phi: Callable
     ) -> Tuple[np.ndarray, dict]:
         # Initialize parameters
         x = self._initialize()
@@ -110,7 +110,7 @@ class FistaMod(BaseFISTA):
         self.r = r
 
     def optimize(
-        self, prox_J: Callable, grad_F: Callable, obj_phi: Callable
+        self, grad_F: Callable, prox_J: Callable, obj_phi: Callable
     ) -> Tuple[np.ndarray, dict]:
         x = self._initialize()
         y = x.copy()
@@ -150,7 +150,7 @@ class RestartingFISTA(BaseFISTA):
     """FISTA with adaptive restart"""
 
     def optimize(
-        self, prox_J: Callable, grad_F: Callable, obj_phi: Callable
+        self, grad_F: Callable, prox_J: Callable, obj_phi: Callable
     ) -> Tuple[np.ndarray, dict]:
         x = self._initialize()
         y = x.copy()
@@ -198,7 +198,7 @@ class GreedyFISTA(BaseFISTA):
         self.c_gamma = c_gamma
 
     def optimize(
-        self, prox_J: Callable, grad_F: Callable, obj_phi: Callable
+        self, grad_F: Callable, prox_J: Callable, obj_phi: Callable
     ) -> Tuple[np.ndarray, dict]:
         x = self._initialize()
         y = x.copy()
