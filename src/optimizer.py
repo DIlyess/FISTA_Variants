@@ -4,6 +4,7 @@ import numpy as np
 from typing import Callable, Tuple, Optional
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from tqdm import tqdm
 
 
 @dataclass
@@ -13,8 +14,8 @@ class OptimizationParams:
     dim: int  # dimension of the problem
     mu: float  # regularization parameter
     gamma: float  # step size
-    tol: float = 1e-15  # tolerance for stopping criterion
-    max_iter: int = 50000  # maximum number of iterations
+    tol: float = 1e-10  # tolerance for stopping criterion
+    max_iter: int = 5000  # maximum number of iterations
     verbose: bool = True
     x0: Optional[np.ndarray] = None  # initial point
 
@@ -63,7 +64,7 @@ class FistaBT(BaseFISTA):
         # History for tracking convergence
         history = {"objective": [], "residual": [], "iterations": 0}
 
-        for k in range(self.params.max_iter):
+        for k in tqdm(range(self.params.max_iter)):
             # Store old values
             x_old = x.copy()
 
@@ -118,7 +119,7 @@ class FistaMod(BaseFISTA):
 
         history = {"objective": [], "residual": [], "iterations": 0}
 
-        for k in range(self.params.max_iter):
+        for k in tqdm(range(self.params.max_iter)):
             x_old = x.copy()
 
             # Forward-backward step

@@ -3,6 +3,7 @@
 import numpy as np
 from typing import Tuple, Callable
 from scipy import linalg
+from scipy.ndimage import convolve
 
 
 def lasso_problem(
@@ -17,7 +18,7 @@ def lasso_problem(
     k = int(sparsity * dim)
     idx = np.random.choice(dim, k, replace=False)
     x_true[idx] = np.random.randn(k)
-    b = A @ x_true + 0.01 * np.random.randn(n)
+    b = A @ x_true + 10 * np.random.randn(n)
 
     def grad_F(x: np.ndarray) -> np.ndarray:
         """Gradient of the smooth part (least squares)"""
@@ -34,45 +35,43 @@ def lasso_problem(
     return grad_F, prox_J, obj_phi
 
 
-def tv_problem(n: int = 100) -> Tuple[Callable, Callable, Callable]:
+def tv_problem_2d(image: np.ndarray) -> Tuple[Callable, Callable, Callable]:
     """
-    Create Total Variation problem instance
+    Create a 2D Total Variation problem instance for image denoising.
+    :param image: Noisy input image (grayscale, 2D numpy array)
     """
-    # Generate synthetic piecewise constant signal
-    x_true = np.zeros(n)
-    change_points = np.sort(np.random.choice(n, 5, replace=False))
-    current_value = 0
-    for cp in change_points:
-        current_value += np.random.randn()
-        x_true[cp:] = current_value
-    b = x_true + 0.01 * np.random.randn(n)
+    b = image  # Noisy image
+    m, n = b.shape  # Image dimensions
 
-    # Finite difference matrix
-    D = np.eye(n) - np.eye(n, k=1)[: n - 1]
+    # Finite difference operators for horizontal and vertical gradients
+    Dx = np.array([[1, -1]])  # Horizontal difference
+    Dy = np.array([[1], [-1]])  # Vertical difference
 
     def grad_F(x: np.ndarray) -> np.ndarray:
-        """Gradient of the smooth part"""
+        """Gradient of the smooth part (data fidelity term)."""
         return x - b
 
     def prox_J(x: np.ndarray, t: float) -> np.ndarray:
-        """Proximal operator for TV norm"""
-        z = np.zeros_like(x)
-        for i in range(len(x) - 1):
-            diff = x[i + 1] - x[i]
-            if diff > t:
-                z[i + 1] = x[i + 1] - t
-                z[i] = x[i]
-            elif diff < -t:
-                z[i + 1] = x[i + 1] + t
-                z[i] = x[i]
-            else:
-                mean = (x[i + 1] + x[i]) / 2
-                z[i + 1] = z[i] = mean
-        return z
+        """Proximal operator for TV norm using anisotropic total variation."""
+        grad_x = convolve(x, Dx, mode="nearest")  # Horizontal gradient
+        grad_y = convolve(x, Dy, mode="nearest")  # Vertical gradient
+
+        # Soft-thresholding
+        grad_x = np.sign(grad_x) * np.maximum(np.abs(grad_x) - t, 0)
+        grad_y = np.sign(grad_y) * np.maximum(np.abs(grad_y) - t, 0)
+
+        # Compute divergence (negative adjoint of gradient)
+        div_x = convolve(grad_x, -Dx, mode="nearest")
+        div_y = convolve(grad_y, -Dy, mode="nearest")
+
+        return x + t * (div_x + div_y)
 
     def obj_phi(x: np.ndarray) -> float:
-        """Full objective function"""
-        return 0.5 * np.sum((x - b) ** 2) + np.sum(np.abs(np.diff(x)))
+        """Full objective function: data fidelity + TV norm."""
+        tv_term = np.sum(np.abs(convolve(x, Dx, mode="nearest"))) + np.sum(
+            np.abs(convolve(x, Dy, mode="nearest"))
+        )
+        return 0.5 * np.sum((x - b) ** 2) + tv_term
 
     return grad_F, prox_J, obj_phi
 
