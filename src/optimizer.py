@@ -75,7 +75,8 @@ class FistaBT(BaseFISTA):
             # Update momentum term
             t_old = t
             t = (1 + np.sqrt(1 + 4 * t_old**2)) / 2
-            y = x + ((t_old - 1) / t) * (x - x_old)
+            a = (t_old - 1) / t
+            y = x + a * (x - x_old)
 
             # Calculate residual
             residual = np.linalg.norm(x - x_old)
@@ -88,6 +89,50 @@ class FistaBT(BaseFISTA):
             history["residual"].append(residual)
 
             # Check convergence
+            if residual < self.params.tol:
+                break
+
+        history["iterations"] = k + 1
+        return x, history
+
+
+class FistaCD(BaseFISTA):
+    """FISTA with Chambolle and Dossal update"""
+
+    def __init__(self, params: OptimizationParams, d: float = 3):
+        super().__init__(params)
+        self.d = d
+
+    def optimize(
+        self, grad_F: Callable, prox_J: Callable, obj_phi: Callable
+    ) -> Tuple[np.ndarray, dict]:
+        x = self._initialize()
+        y = x.copy()
+        t = 1.0
+
+        history = {"objective": [], "residual": [], "iterations": 0}
+
+        for k in tqdm(range(self.params.max_iter)):
+            x_old = x.copy()
+
+            # Forward-backward step
+            grad = grad_F(y)
+            x = prox_J(y - self.params.gamma * grad, self.params.mu * self.params.gamma)
+
+            # Chambolle-Dossal update
+            t_old = t
+            t = (k + 1 + self.d) / self.d
+            a = (t_old - 1) / t
+            y = x + a * (x - x_old)
+
+            residual = np.linalg.norm(x - x_old)
+
+            if self.params.verbose and k % 100 == 0:
+                print(f"Iteration {k}: residual = {residual:.3e}")
+
+            history["objective"].append(obj_phi(x))
+            history["residual"].append(residual)
+
             if residual < self.params.tol:
                 break
 
@@ -129,7 +174,7 @@ class FistaMod(BaseFISTA):
             # Modified momentum term
             t_old = t
             t = (self.p + np.sqrt(self.q + self.r * t_old**2)) / 2
-            a = (t_old - 1) / t  ################### faut il mettre un min avec 1 ?
+            a = (t_old - 1) / t
             y = x + a * (x - x_old)
 
             residual = np.linalg.norm(x - x_old)
