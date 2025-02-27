@@ -18,7 +18,7 @@ def plot_convergence(
 
     plt.grid(True, which="both", ls="-", alpha=0.2)
     plt.xlabel("Iterations")
-    plt.ylabel("$\Phi(x_k) - \Phi(x^*)$")
+    plt.ylabel("$\Phi(x_k)$")
     plt.legend()
     plt.title(f"{title} - Objective Value")
 
