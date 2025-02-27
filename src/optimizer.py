@@ -222,7 +222,7 @@ class RestartingFISTA(BaseFISTA):
 
         history = {"objective": [], "residual": [], "iterations": 0}
 
-        for k in range(self.params.max_iter):
+        for k in tqdm(range(self.params.max_iter)):
             x_old = x.copy()
 
             # Forward-backward step
@@ -230,7 +230,7 @@ class RestartingFISTA(BaseFISTA):
             x = prox_J(y - self.params.gamma * grad, self.params.mu * self.params.gamma)
 
             # Check restart condition
-            if np.dot(y - x, x - x_old) >= 0:
+            if np.sum((y - x) * (x - x_old)) >= 0:
                 # Restarting: Option II
                 self.r = self.xi * self.r
                 t = 1.0

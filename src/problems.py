@@ -35,7 +35,7 @@ def lasso_problem(
     return grad_F, prox_J, obj_phi
 
 
-def tv_problem_2d_chambolle(
+def tv_problem_2d(
     image: np.ndarray, lambda_tv: float = 1.0
 ) -> Tuple[Callable, Callable, Callable]:
     """
