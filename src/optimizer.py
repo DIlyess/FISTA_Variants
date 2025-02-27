@@ -1,6 +1,7 @@
 # optimizer.py
 
 import numpy as np
+import numpy.linalg as nl
 from typing import Callable, Tuple, Optional
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
@@ -257,16 +258,20 @@ class RestartingFISTA(BaseFISTA):
 class GreedyFISTA(BaseFISTA):
     """Greedy FISTA variant"""
 
-    def __init__(self, params: OptimizationParams, c_gamma: float = 1.3):
+    def __init__(self, params: OptimizationParams, S: float = 1.3, xi: float = 0.96):
         super().__init__(params)
-        self.c_gamma = c_gamma
+        assert S >= 1, "S must be >= 1"
+        self.S = S
+        assert xi > 0 and xi < 1, "xi must be in (0, 1)"
+        self.xi = xi
 
     def optimize(
         self, grad_F: Callable, prox_J: Callable, obj_phi: Callable
     ) -> Tuple[np.ndarray, dict]:
         x = self._initialize()
+        x0 = x.copy()
         y = x.copy()
-        gamma = self.params.gamma * self.c_gamma
+        gamma = self.params.gamma
 
         history = {"objective": [], "residual": [], "iterations": 0}
 
@@ -278,14 +283,20 @@ class GreedyFISTA(BaseFISTA):
             grad = grad_F(y)
             x = prox_J(y - gamma * grad, self.params.mu * gamma)
 
+            if k == 0:
+                x1 = x.copy()
+
             # Adaptive momentum
             a = 1.0
             y = x + a * (x - x_old)
 
-            # Step size adaptation
-            if np.linalg.norm(x - x_old) > np.linalg.norm(y_old - x_old):
-                gamma = max(self.params.gamma, gamma * 0.96)
-                y = x.copy()
+            # Restarting condition
+            if np.dot(y_old - x, x - x_old) >= 0:
+                y = x_old.copy()
+
+            # Safeguard condition
+            if nl.norm(x - x_old) > self.S * nl.norm(x1 - x0):
+                gamma = max(self.xi * gamma, gamma)
 
             residual = np.linalg.norm(x - x_old)
 
