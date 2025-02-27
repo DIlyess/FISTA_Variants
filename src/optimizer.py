@@ -151,8 +151,10 @@ class FistaMod(BaseFISTA):
         r: float = 4,
     ):
         super().__init__(params)
+        assert p > 0 and q > 0, "Parameters (p,q) must be positive"
         self.p = p
         self.q = q
+        assert r > 0 and r <= 4, "Parameter r must be in (0,4]"
         self.r = r
 
     def optimize(
@@ -195,6 +197,21 @@ class FistaMod(BaseFISTA):
 class RestartingFISTA(BaseFISTA):
     """FISTA with adaptive restart"""
 
+    def __init__(
+        self,
+        params: OptimizationParams,
+        p: float = 1 / 20,
+        q: float = 1 / 2,
+        r: float = 4.0,
+        xi: float = 0.96,
+    ):
+        super().__init__(params)
+        self.p = p
+        self.q = q
+        self.r = r
+        assert xi > 0 and xi < 1, "xi must be in (0, 1)"
+        self.xi = xi
+
     def optimize(
         self, grad_F: Callable, prox_J: Callable, obj_phi: Callable
     ) -> Tuple[np.ndarray, dict]:
@@ -206,19 +223,20 @@ class RestartingFISTA(BaseFISTA):
 
         for k in range(self.params.max_iter):
             x_old = x.copy()
-            y_old = y.copy()
 
             # Forward-backward step
             grad = grad_F(y)
             x = prox_J(y - self.params.gamma * grad, self.params.mu * self.params.gamma)
 
             # Check restart condition
-            if np.dot(y_old - x, x - x_old) > 0:
+            if np.dot(y - x, x - x_old) >= 0:
+                # Restarting: Option II
+                self.r = self.xi * self.r
                 t = 1.0
                 y = x.copy()
             else:
                 t_old = t
-                t = (1 + np.sqrt(1 + 4 * t_old**2)) / 2
+                t = (self.p + np.sqrt(self.q + self.r * t_old**2)) / 2
                 y = x + ((t_old - 1) / t) * (x - x_old)
 
             residual = np.linalg.norm(x - x_old)
@@ -261,7 +279,7 @@ class GreedyFISTA(BaseFISTA):
             x = prox_J(y - gamma * grad, self.params.mu * gamma)
 
             # Adaptive momentum
-            a = 1.0  # Can be modified based on iteration number
+            a = 1.0
             y = x + a * (x - x_old)
 
             # Step size adaptation
