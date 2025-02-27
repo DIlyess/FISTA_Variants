@@ -76,6 +76,112 @@ def tv_problem_2d(image: np.ndarray) -> Tuple[Callable, Callable, Callable]:
     return grad_F, prox_J, obj_phi
 
 
+def tv_problem_2d_Chambolle(
+    image: np.ndarray, lambda_tv: float = 1.0
+) -> Tuple[Callable, Callable, Callable]:
+    """
+    Create a 2D Total Variation problem instance for image denoising.
+    :param image: Noisy input image (grayscale, 2D numpy array)
+    Prox calculation using Chambolle's algorithm
+    """
+    b = image  # Noisy image
+
+    def grad_F(x: np.ndarray) -> np.ndarray:
+        """Gradient of the smooth part (data fidelity term)."""
+        return x - b
+
+    def prox_J(x: np.ndarray, t: float) -> np.ndarray:
+        """Proximal operator for TV norm using Chambolle's algorithm."""
+        # Scale the regularization parameter
+        tau = t * lambda_tv
+
+        # Initialize the dual variable (p)
+        h, w = x.shape
+        p = np.zeros((h, w, 2))  # p = (p^1, p^2) dual variable
+
+        # Parameters for Chambolle's algorithm
+        max_iter = 30
+        tol = 1e-5
+        sigma = 1.0 / 8.0  # Step size for dual update (1/8 is stable for 2D)
+
+        # Function to compute divergence of p
+        def div(p):
+            # Compute the divergence: div(p) = ∂p^1/∂x + ∂p^2/∂y
+            div_x = np.zeros_like(x)
+            div_y = np.zeros_like(x)
+
+            # Forward differences with Neumann boundary conditions
+            div_x[:, :-1] = p[:, :-1, 0] - p[:, 1:, 0]
+            div_x[:, -1] = p[:, -1, 0]
+
+            div_y[:-1, :] = p[:-1, :, 1] - p[1:, :, 1]
+            div_y[-1, :] = p[-1, :, 1]
+
+            return div_x + div_y
+
+        # Function to compute gradient of x
+        def gradient(x):
+            # Compute the gradient: ∇x = (∂x/∂x, ∂x/∂y)
+            grad = np.zeros((h, w, 2))
+
+            # Backward differences with Neumann boundary conditions
+            grad[:, 1:, 0] = x[:, 1:] - x[:, :-1]
+            grad[1:, :, 1] = x[1:, :] - x[:-1, :]
+
+            return grad
+
+        # Initialize u with input x
+        u = x.copy()
+
+        # Chambolle's algorithm
+        for _ in range(max_iter):
+            # Compute the gradient of current u
+            grad_u = gradient(u)
+
+            # Update the dual variable p
+            p_new = p + sigma * grad_u
+
+            # Project p onto the unit ball
+            norm = np.sqrt(np.sum(p_new**2, axis=2))
+            norm = np.maximum(norm, 1.0)  # Avoid division by zero
+            p_new[:, :, 0] /= norm
+            p_new[:, :, 1] /= norm
+
+            # Update p
+            p = p_new
+
+            # Update the primal variable u
+            div_p = div(p)
+            u_new = x - tau * div_p
+
+            # Check convergence
+            if np.linalg.norm(u_new - u) / np.linalg.norm(u) < tol:
+                u = u_new
+                break
+
+            u = u_new
+
+        return u
+
+    def obj_phi(x: np.ndarray) -> float:
+        """Full objective function: data fidelity + TV norm."""
+        # Data fidelity term
+        data_term = 0.5 * np.sum((x - b) ** 2)
+
+        # TV norm using finite differences
+        grad_x = np.zeros_like(x)
+        grad_y = np.zeros_like(x)
+
+        grad_x[:, 1:] = x[:, 1:] - x[:, :-1]
+        grad_y[1:, :] = x[1:, :] - x[:-1, :]
+
+        tv_term = lambda_tv * np.sum(np.sqrt(grad_x**2 + grad_y**2))
+
+        return data_term + tv_term
+
+    return grad_F, prox_J, obj_phi
+
+
 def logistic_regression_problem(
     dim: int, n_samples: int = 1000, n_features: int = 100
 ) -> Tuple[Callable, Callable, Callable]:
