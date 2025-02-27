@@ -275,7 +275,7 @@ class GreedyFISTA(BaseFISTA):
 
         history = {"objective": [], "residual": [], "iterations": 0}
 
-        for k in range(self.params.max_iter):
+        for k in tqdm(range(self.params.max_iter)):
             x_old = x.copy()
             y_old = y.copy()
 
@@ -291,7 +291,7 @@ class GreedyFISTA(BaseFISTA):
             y = x + a * (x - x_old)
 
             # Restarting condition
-            if np.dot(y_old - x, x - x_old) >= 0:
+            if np.sum((y_old - x) * (x - x_old)) >= 0:
                 y = x_old.copy()
 
             # Safeguard condition
