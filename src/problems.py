@@ -35,47 +35,6 @@ def lasso_problem(
     return grad_F, prox_J, obj_phi
 
 
-def tv_problem_2d(image: np.ndarray) -> Tuple[Callable, Callable, Callable]:
-    """
-    Create a 2D Total Variation problem instance for image denoising.
-    :param image: Noisy input image (grayscale, 2D numpy array)
-    """
-    b = image  # Noisy image
-    m, n = b.shape  # Image dimensions
-
-    # Finite difference operators for horizontal and vertical gradients
-    Dx = np.array([[1, -1]])  # Horizontal difference
-    Dy = np.array([[1], [-1]])  # Vertical difference
-
-    def grad_F(x: np.ndarray) -> np.ndarray:
-        """Gradient of the smooth part (data fidelity term)."""
-        return x - b
-
-    def prox_J(x: np.ndarray, t: float) -> np.ndarray:
-        """Proximal operator for TV norm using anisotropic total variation."""
-        grad_x = convolve(x, Dx, mode="nearest")  # Horizontal gradient
-        grad_y = convolve(x, Dy, mode="nearest")  # Vertical gradient
-
-        # Soft-thresholding
-        grad_x = np.sign(grad_x) * np.maximum(np.abs(grad_x) - t, 0)
-        grad_y = np.sign(grad_y) * np.maximum(np.abs(grad_y) - t, 0)
-
-        # Compute divergence (negative adjoint of gradient)
-        div_x = convolve(grad_x, -Dx, mode="nearest")
-        div_y = convolve(grad_y, -Dy, mode="nearest")
-
-        return x + t * (div_x + div_y)
-
-    def obj_phi(x: np.ndarray) -> float:
-        """Full objective function: data fidelity + TV norm."""
-        tv_term = np.sum(np.abs(convolve(x, Dx, mode="nearest"))) + np.sum(
-            np.abs(convolve(x, Dy, mode="nearest"))
-        )
-        return 0.5 * np.sum((x - b) ** 2) + tv_term
-
-    return grad_F, prox_J, obj_phi
-
-
 def tv_problem_2d_chambolle(
     image: np.ndarray, lambda_tv: float = 1.0
 ) -> Tuple[Callable, Callable, Callable]:
